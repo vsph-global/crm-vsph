@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Search } from "lucide-react";
 
-const SearchableSelect = ({ options, value, onChange, placeholder = "Select...", hasError }) => {
+const SearchableSelect = ({ options, value, onChange, placeholder = "Select...", hasError, workspaceMotion=false, controlId, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef(null);
+  const triggerRef=useRef(null), searchRef=useRef(null);
+  function close(focus=false){setIsOpen(false);setSearch("");if(focus)triggerRef.current?.focus();}
 
   const filteredOptions = options.filter(option => 
     option.toLowerCase().includes(search.toLowerCase())
@@ -20,6 +22,11 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Select...",
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(()=>{if(workspaceMotion&&isOpen)searchRef.current?.focus();},[workspaceMotion,isOpen]);
+  if(workspaceMotion)return <div className="cw-contact-select" ref={dropdownRef} onKeyDown={e=>{if(isOpen&&e.key==="Escape"){e.preventDefault();e.stopPropagation();close(true);}}}>
+    <button ref={triggerRef} id={controlId} type="button" className="cw-button cw-contact-select-trigger" aria-label={label+(value?": "+value:"")} aria-expanded={isOpen} aria-controls={controlId+"-options"} aria-invalid={!!hasError} onClick={()=>isOpen?close():setIsOpen(true)}><span>{value||placeholder}</span><ChevronDown size={16} aria-hidden="true"/></button>
+    {isOpen&&<div id={controlId+"-options"} className="cw-contact-select-menu"><input ref={searchRef} type="search" aria-label={"Search "+label.toLowerCase()} placeholder="Search" value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="ArrowDown"){e.preventDefault();dropdownRef.current?.querySelector(".cw-contact-select-options button")?.focus();}}}/><div className="cw-contact-select-options" role="group" aria-label={label+" options"}>{filteredOptions.length?filteredOptions.map(option=><button key={option} type="button" aria-pressed={value===option} onClick={()=>{onChange(option);close(true);}}>{option}</button>):<p className="cw-muted" role="status">No matches</p>}</div></div>}
+  </div>;
   return (
     <div className="relative w-full" ref={dropdownRef}>
       <div 

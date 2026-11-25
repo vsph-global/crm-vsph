@@ -1,0 +1,130 @@
+name: CRM contact release validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/contact-workspace-redesign]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/contact-release-validation.yml'
+permissions:
+  contents: read
+concurrency:
+  group: contact-release-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test:contact-workspace && npm run test:contact-preview && npm run test:contact-motion
+      - run: npm run build
+      - run: npm run lint:contact
+        if: always()
+      - name: Full repository lint regression gate (legacy findings reported)
+        if: always()
+        run: |
+          baseline_dir="$(mktemp -d)"
+          git worktree add --detach "$baseline_dir" f6f88fb58197e9896c9dde910d9bf42dd3b58f36
+          trap 'git worktree remove --force "$baseline_dir"' EXIT
+          ln -s "$PWD/node_modules" "$baseline_dir/frontend/node_modules"
+          (cd "$baseline_dir/frontend"; ./node_modules/.bin/eslint . --format json --output-file "$RUNNER_TEMP/legacy-lint.json") || test "$?" -eq 1
+          ./node_modules/.bin/eslint . --format json --output-file "$RUNNER_TEMP/current-lint.json" || test "$?" -eq 1
+          node scripts/checkLintRegression.mjs "$RUNNER_TEMP/legacy-lint.json" "$RUNNER_TEMP/current-lint.json"
+      - name: Install isolated browser test runner
+        if: always()
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1 && npx playwright install --with-deps chromium
+      - run: npm run test:contact-browser
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: contact-browser-failures
+          path: frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: isolated-test-root
+          MYSQL_DATABASE: crm_release_test
+          MYSQL_USER: crm_test
+          MYSQL_PASSWORD: isolated-test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pisolated-test-root"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      RUN_DB_TESTS: '1'
+      DATABASE_URL: mysql://crm_test:isolated-test-password@127.0.0.1:3306/crm_release_test
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: '3306'
+      DATABASE_USER: crm_test
+      DATABASE_PASSWORD: isolated-test-password
+      DATABASE_NAME: crm_release_test
+      AUTH_TOKEN_SECRET: isolated-ci-only-secret-never-use-in-production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Validate and generate Prisma client
+        id: prisma
+        run: npx prisma validate && npx prisma generate
+      - name: Reject remote and mismatched database targets before bootstrap
+        run: |
+          if DATABASE_URL=mysql://test:test@example.invalid/crm_release_test npm run db:bootstrap:local -- --database crm_release_test --confirm-empty > bootstrap-guard.log 2>&1; then
+            echo "Unexpected remote bootstrap success"
+            exit 1
+          fi
+          grep -F "Refusing bootstrap: DATABASE_URL" bootstrap-guard.log
+          if npm run db:bootstrap:local -- --database wrong_database --confirm-empty > bootstrap-guard.log 2>&1; then
+            echo "Unexpected mismatched bootstrap success"
+            exit 1
+          fi
+          grep -F "Refusing bootstrap: DATABASE_URL" bootstrap-guard.log
+      - name: Bootstrap empty MySQL using verified historical baseline
+        id: contact_migrations
+        run: npm run db:bootstrap:local -- --database crm_release_test --confirm-empty
+      - name: Reject a second bootstrap without modifying existing schema
+        if: steps.contact_migrations.outcome == 'success'
+        run: |
+          if npm run db:bootstrap:local -- --database crm_release_test --confirm-empty > bootstrap-refusal.log 2>&1; then
+            echo "Unexpected successful bootstrap of nonempty database"
+            exit 1
+          fi
+          grep -F 'Refusing bootstrap: database is not empty.' bootstrap-refusal.log
+          npx prisma migrate status
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Contact HTTP release regression
+        if: always() && steps.contact_migrations.outcome == 'success'
+        run: node --test tests/contact-release.db.test.js
+      - name: Full backend regression
+        if: always() && steps.contact_migrations.outcome == 'success'
+        run: npm test

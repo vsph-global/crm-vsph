@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { getTenantFilter } from "../middleware/auth.middleware.js";
+import { opportunityWrite, opportunityRelations } from "../lib/crmWrites.js";
 
 export const getOpportunities = async (req, res) => {
   try {
@@ -78,133 +79,43 @@ export const getOpportunityById = async (req, res) => {
   }
 };
 
-// // POST /api/opportunities
-// POST /api/opportunities
-export const createOpportunity = async (req, res) => {
-  try {
-    const {
-      opportunity_name,
-      opportunity_owner_fk,
-      opportunity_close_date,
-      ...otherFields
-    } = req.body;
-
-    if (!opportunity_name || !opportunity_owner_fk || !opportunity_close_date) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Missing required fields: Name, Owner, and Close Date are mandatory.",
-      });
-    }
-
-    // Resolve tenant: client users always use their own tenant; superadmin may specify one
-    let tenantId = req.user.tenantFk;
-    if (req.user.role === "SUPER_ADMIN" && req.body.tenant_fk) {
-      tenantId = req.body.tenant_fk;
-    }
-    if (!tenantId) {
-      return res.status(400).json({
-        success: false,
-        message: "No tenant context. Client users are auto-assigned; superadmin must provide tenant_fk.",
-      });
-    }
-
-    // Clean up fields: remove empty strings, properly format dates
-    const dataToSave = {
-      tenant_fk: tenantId,
-      opportunity_name,
-      opportunity_owner_fk,
-      opportunity_close_date: new Date(opportunity_close_date),
-    };
-
-    const dateFields = [
-      "opportunity_pitched_at",
-      "opportunity_pickup_date",
-      "opportunity_drop_date",
-    ];
-
-    for (const [key, value] of Object.entries(otherFields)) {
-      if (value === "" || value === null || value === undefined) continue;
-
-      if (dateFields.includes(key)) {
-        dataToSave[key] = new Date(value);
-      } else {
-        dataToSave[key] = value;
-      }
-    }
-
-    const newOpportunity = await prisma.opportunity.create({
-      data: dataToSave,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Opportunity created",
-      data: newOpportunity,
-    });
-  } catch (error) {
-    console.error("Error creating opportunity:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+async function checkRelations(data,tenantId){
+  for(const [field,[model,key,deleted]] of Object.entries(opportunityRelations)){
+    if(!data[field])continue;
+    const linked=await prisma[model].findFirst({where:{[key]:data[field],tenant_fk:tenantId,...(deleted?{[deleted]:null}:{})},select:{[key]:true}});
+    if(!linked)return "Invalid organization reference: "+field;
+  }
+  return null;
+}
+export const createOpportunity = async (req,res)=>{
+  try{
+    const tenantId=req.user.role==="SUPER_ADMIN"?req.body.tenant_fk:req.user.tenantFk;
+    if(!tenantId)return res.status(400).json({success:false,message:"No tenant context."});
+    const result=opportunityWrite(req.body);
+    if(result.error)return res.status(400).json({success:false,message:result.error});
+    const error=await checkRelations(result.data,tenantId);
+    if(error)return res.status(400).json({success:false,message:error});
+    const data=await prisma.opportunity.create({data:{...result.data,tenant_fk:tenantId}});
+    res.status(201).json({success:true,message:"Opportunity created",data});
+  }catch(error){
+    console.error("Error creating opportunity:",error);
+    res.status(500).json({success:false,message:"Could not create opportunity."});
   }
 };
-
-// PUT /api/opportunities/:id
-export const updateOpportunity = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      opportunity_name,
-      opportunity_owner_fk,
-      opportunity_close_date,
-      ...otherFields
-    } = req.body;
-
-    // Clean up fields: remove empty strings, properly format dates
-    const dataToSave = {};
-
-    if (opportunity_name) dataToSave.opportunity_name = opportunity_name;
-    if (opportunity_owner_fk)
-      dataToSave.opportunity_owner_fk = opportunity_owner_fk;
-    if (opportunity_close_date)
-      dataToSave.opportunity_close_date = new Date(opportunity_close_date);
-
-    const dateFields = [
-      "opportunity_pitched_at",
-      "opportunity_pickup_date",
-      "opportunity_drop_date",
-    ];
-
-    for (const [key, value] of Object.entries(otherFields)) {
-      if (value === "") {
-        dataToSave[key] = null; // Clear out the field if empty string is passed during update
-        continue;
-      }
-      if (value === null || value === undefined) continue;
-
-      if (dateFields.includes(key)) {
-        dataToSave[key] = new Date(value);
-      } else {
-        dataToSave[key] = value;
-      }
-    }
-
-    const updatedOpportunity = await prisma.opportunity.update({
-      where: { opportunity_id: id, ...getTenantFilter(req) },
-      data: dataToSave,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Opportunity updated",
-      data: updatedOpportunity,
-    });
-  } catch (error) {
-    console.error("Error updating opportunity:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+export const updateOpportunity = async (req,res)=>{
+  try{
+    const where={opportunity_id:req.params.id,...getTenantFilter(req)};
+    const existing=await prisma.opportunity.findFirst({where});
+    if(!existing)return res.status(404).json({success:false,message:"Opportunity not found."});
+    const result=opportunityWrite(req.body,existing);
+    if(result.error)return res.status(400).json({success:false,message:result.error});
+    const error=await checkRelations(result.data,existing.tenant_fk);
+    if(error)return res.status(400).json({success:false,message:error});
+    const data=await prisma.opportunity.update({where:{...where,tenant_fk:existing.tenant_fk},data:result.data});
+    res.json({success:true,message:"Opportunity updated",data});
+  }catch(error){
+    console.error("Error updating opportunity:",error);
+    res.status(500).json({success:false,message:"Could not update opportunity."});
   }
 };
 

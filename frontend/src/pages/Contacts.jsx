@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Download, Plus, Search, Eye, Edit2, Loader2, Trash2, Users,
+  Plus, Search, Eye, Edit2, Loader2, Trash2, Users,
 } from "lucide-react";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
@@ -28,21 +28,20 @@ const Contacts = () => {
   const [limit] = useState(20);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
-  const [viewContactId, setViewContactId] = useState(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewContactId = searchParams.get("contact_id");
+  const setViewContactId = (id) => setSearchParams((previous) => {
+    const next = new URLSearchParams(previous);
+    if (id) next.set("contact_id", id); else next.delete("contact_id");
+    if (!id || id!==previous.get("contact_id")) next.delete("contact_view");
+    return next;
+  }, { replace: !id });
   const canCreate = canDoAction("CONTACTS", "CREATE");
   const canEdit = canDoAction("CONTACTS", "EDIT");
   const canDelete = canDoAction("CONTACTS", "DELETE");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const contactId = searchParams.get("contact_id");
-    if (contactId) setViewContactId(contactId);
-    const t = setTimeout(() => fetchContacts(), 300);
-    return () => clearTimeout(t);
-  }, [searchTerm, currentPage]);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
       const query = `?page=${currentPage}&limit=${limit}${
@@ -59,7 +58,12 @@ const Contacts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, limit, searchTerm]);
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchContacts(), 300);
+    return () => clearTimeout(t);
+  }, [fetchContacts]);
 
   const toggleSelectAll = () => {
     if (selectAll) {
@@ -110,23 +114,11 @@ const Contacts = () => {
     }
   };
 
-  const callStatusBadge = (status) => {
-    const variants = {
-      CONNECTED: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      PITCH_DONE: "bg-vsph-core-blue/10 text-vsph-core-blue border-vsph-core-blue/20",
-      FOLLOW_UP: "bg-vsph-light-blue/20 text-vsph-core-blue border-vsph-light-blue/20",
-      NOT_INTERESTED: "bg-rose-50 text-rose-700 border-rose-100",
-      NOT_RELEVANT: "bg-slate-50 text-slate-600 border-slate-100",
-      LEFT_ORGANIZATION: "bg-rose-50 text-rose-700 border-rose-100",
-      NOT_AVAILABLE: "bg-amber-50 text-amber-700 border-amber-100",
-      NOT_CONNECTED: "bg-rose-50 text-rose-700 border-rose-100",
-    };
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[status] || variants.NOT_RELEVANT}`}>
-        {status ? status.replace(/_/g, " ") : "—"}
-      </span>
-    );
-  };
+  if (viewContactId) {
+    const index=contactsData.findIndex(contact=>contact.contact_id===viewContactId);
+    const neighbors=!loading&&index>=0?{previous:contactsData[index-1]?.contact_id,next:contactsData[index+1]?.contact_id,position:index+1,total:contactsData.length}:null;
+    return <ConDetailView key={viewContactId} isOpen onClose={() => setViewContactId(null)} contactId={viewContactId} onChanged={fetchContacts} neighbors={neighbors} onNavigate={setViewContactId}/>;
+  }
 
   return (
     <div className="flex flex-col h-full bg-page-bg animate-fade-in relative overflow-hidden">
@@ -355,13 +347,6 @@ const Contacts = () => {
         onSuccess={fetchContacts}
         contactToEdit={contactToEdit}
       />
-      {viewContactId && (
-        <ConDetailView
-          isOpen={!!viewContactId}
-          onClose={() => setViewContactId(null)}
-          contactId={viewContactId}
-        />
-      )}
     </div>
   );
 };

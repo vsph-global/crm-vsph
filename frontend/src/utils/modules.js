@@ -1,3 +1,5 @@
+import { readSessionValue } from './session.js'
+
 export const CRM_MODULES = [
   { code: 'CONTACTS', label: 'Contacts' },
   { code: 'ACCOUNTS', label: 'Accounts' },
@@ -17,7 +19,7 @@ export const MODULE_ACTIONS = [
 // null means every module (legacy users and the organization owner).
 export const parseUserModules = () => {
   try {
-    const raw = localStorage.getItem('vsph_user_modules')
+    const raw = readSessionValue('vsph_user_modules')
     if (raw === null) return null
     return JSON.parse(raw)
   } catch {
@@ -27,7 +29,7 @@ export const parseUserModules = () => {
 
 const parseUserActions = () => {
   try {
-    const raw = localStorage.getItem('vsph_user_actions')
+    const raw = readSessionValue('vsph_user_actions')
     if (!raw) return null
     return JSON.parse(raw)
   } catch {
@@ -41,8 +43,8 @@ export const hasModule = (code) => {
 }
 
 export const canDoAction = (code, action) => {
-  const role = localStorage.getItem('vsph_user_role')
-  const isOwner = localStorage.getItem('vsph_user_owner') === 'true'
+  const role = readSessionValue('vsph_user_role')
+  const isOwner = readSessionValue('vsph_user_owner') === 'true'
   if (role === 'SUPER_ADMIN' || role === 'ADMIN' || isOwner) return true
   if (!hasModule(code)) return false
 
@@ -55,8 +57,8 @@ export const canDoAction = (code, action) => {
 
 /** ORG_SUPER_ADMIN | ORG_ADMIN | EMPLOYEE | PLATFORM_SUPERADMIN */
 export const currentOrgRole = () => {
-  const role = localStorage.getItem('vsph_user_role')
-  const isOwner = localStorage.getItem('vsph_user_owner') === 'true'
+  const role = readSessionValue('vsph_user_role')
+  const isOwner = readSessionValue('vsph_user_owner') === 'true'
   if (role === 'SUPER_ADMIN') return 'PLATFORM_SUPERADMIN'
   if (isOwner) return 'ORG_SUPER_ADMIN'
   if (role === 'ADMIN') return 'ORG_ADMIN'

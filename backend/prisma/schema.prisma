@@ -28,6 +28,7 @@ model tenant {
   tenant_tasks         task[]                         @relation("tenant_tasks")
   tenant_task_updates  task_update[]                  @relation("tenant_task_updates")
   tenant_calls         call[]                         @relation("tenant_calls")
+  contact_activity_entries contact_activity_entry[]
   tenant_campaigns     campaign[]                     @relation("tenant_campaigns")
   tenant_industries    industry[]                     @relation("tenant_industries")
   tenant_entitlements  organization_app_entitlement[]
@@ -65,6 +66,7 @@ model user {
   user_owned_contacts contact[]     @relation("contact_owner")
   user_campaigns      campaign[]    @relation("campaign_user")
   user_calls          call[]        @relation("call_user")
+  contact_activity_entries contact_activity_entry[]
   user_tasks          task[]        @relation("task_user")
   tasks_assigned      task[]        @relation("task_assigned_by")
   task_updates        task_update[] @relation("task_update_user")
@@ -213,6 +215,7 @@ model contact {
   contact_title              String?
   contact_mobile             String?
   contact_status             Status?        @default(ACTIVE)
+  contact_relationship_stage relationship_stage?
   contact_created_at         DateTime       @default(now())
   contact_updated_at         DateTime       @updatedAt
   contact_deleted_at         DateTime?
@@ -221,6 +224,7 @@ model contact {
   contact_account_shipping_address shipping[]    @relation("shipping_contact")
   opportunities                    opportunity[]
   contact_calls                    call[]        @relation("call_contact")
+  activity_entries                 contact_activity_entry[]
   tasks                            task[]        @relation("contact_tasks")
 
   @@index([contact_user_fk])
@@ -230,17 +234,16 @@ model contact {
 }
 
 model email_template {
-  email_template_id   String   @id @default(uuid())
-  tenant_fk           String
-  tenant              tenant   @relation("tenant_email_templates", fields: [tenant_fk], references: [tenant_id])
-
-  name                String
-  subject             String   @db.Text
-  body_html           String   @db.Text
-  body_text           String?  @db.Text
-  is_default          Boolean  @default(false)
-  created_at          DateTime @default(now())
-  updated_at          DateTime @updatedAt
+  email_template_id String @id @default(uuid())
+  tenant_fk String
+  tenant tenant @relation("tenant_email_templates", fields: [tenant_fk], references: [tenant_id])
+  name String
+  subject String @db.Text
+  body_html String @db.Text
+  body_text String? @db.Text
+  is_default Boolean @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([tenant_fk])
   @@map("email_templates")
@@ -282,6 +285,9 @@ model opportunity {
   opportunity_drop_time       String?
   opportunity_drop_location   String?
 
+  opportunity_value      Decimal? @db.Decimal(18, 2)
+  opportunity_currency   String? @db.VarChar(3)
+  opportunity_next_step  String? @db.VarChar(191)
   opportunity_name       String
   opportunity_close_date DateTime
   opportunity_created_at DateTime @default(now())
@@ -338,6 +344,7 @@ model call {
 
   call_subject     String?
   call_description String?
+  call_outcome     call_status?
 
   call_created_at DateTime  @default(now())
   call_updated_at DateTime  @updatedAt
@@ -681,4 +688,42 @@ enum task_status {
   IN_PROGRESS
   BLOCKED
   COMPLETED
+}
+
+enum contact_entry_kind {
+  NOTE
+  EMAIL
+  MEETING
+  LINKEDIN
+}
+
+model contact_activity_entry {
+  entry_id String @id @default(uuid())
+  tenant_fk String
+  tenant tenant @relation(fields: [tenant_fk], references: [tenant_id])
+  contact_fk String
+  contact contact @relation(fields: [contact_fk], references: [contact_id])
+  user_fk String?
+  user user? @relation(fields: [user_fk], references: [user_id])
+  entry_kind contact_entry_kind
+  entry_subject String @db.VarChar(191)
+  entry_description String @db.Text
+  entry_occurred_at DateTime
+  entry_created_at DateTime @default(now())
+  entry_deleted_at DateTime?
+  entry_revision Int @default(0)
+  entry_audit Json?
+
+  @@index([tenant_fk, contact_fk, entry_occurred_at], map: "contact_entries_tenant_contact_occurred_idx")
+  @@index([contact_fk])
+  @@index([user_fk])
+  @@map("contact_activity_entries")
+}
+
+enum relationship_stage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  CUSTOMER
 }

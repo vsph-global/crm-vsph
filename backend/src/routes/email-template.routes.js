@@ -1,4 +1,5 @@
 import express from "express";
+import { requirePermission } from "../middleware/auth.middleware.js";
 import {
   listEmailTemplates,
   createEmailTemplate,
@@ -9,10 +10,10 @@ import {
 
 const router = express.Router();
 
-router.get("/", listEmailTemplates);
-router.post("/", createEmailTemplate);
-router.get("/:id", getEmailTemplate);
-router.put("/:id", updateEmailTemplate);
-router.delete("/:id", deleteEmailTemplate);
+router.get("/", requirePermission("CONTACTS","VIEW"), listEmailTemplates);
+router.post("/", requirePermission("CONTACTS","CREATE"), createEmailTemplate);
+router.get("/:id", requirePermission("CONTACTS","VIEW"), getEmailTemplate);
+router.put("/:id", requirePermission("CONTACTS","EDIT"), updateEmailTemplate);
+router.delete("/:id", requirePermission("CONTACTS","DELETE"), deleteEmailTemplate);
 
 export default router;

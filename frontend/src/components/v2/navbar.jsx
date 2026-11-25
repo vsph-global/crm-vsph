@@ -13,7 +13,6 @@ const NAV_ITEMS = [
   { name: 'Projects', path: '/v2/projects', module: 'PROJECTS' },
   { name: 'Campaigns', path: '/v2/campaigns', module: 'CAMPAIGNS' },
   { name: 'Tasks', path: '/v2/tasks', module: 'TASKS' },
-  { name: 'Team', path: '/v2/team', canManage: true },
   { name: 'Email Templates', path: '/v2/email-templates', module: 'CONTACTS' },
 ];
 
@@ -33,7 +32,7 @@ const ID_PARAMS = {
   task: 'task_id',
 };
 
-const Navbar = () => {
+const Navbar = ({ onPreviewExit } = {}) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -44,11 +43,8 @@ const Navbar = () => {
 
   const canManage = canManageOrganization();
   const navItems = [
-    ...NAV_ITEMS.filter((item) =>
-      item.canManage !== undefined
-        ? canManage
-        : !item.module || (hasModule(item.module) && canDoAction(item.module, 'VIEW')),
-    ),
+    ...NAV_ITEMS.filter((item) => !item.module || (hasModule(item.module) && canDoAction(item.module, 'VIEW'))),
+    ...(canManage ? [{ name: 'Team', path: '/v2/team' }] : []),
   ];
 
   const [profile, setProfile] = useState(readProfile);
@@ -121,6 +117,7 @@ const Navbar = () => {
   };
 
   const signOut = () => {
+    if (onPreviewExit) { onPreviewExit(); return; }
     if (window.confirm('Are you sure you want to sign out?')) {
       localStorage.clear();
       window.location.href = '/';
@@ -131,15 +128,12 @@ const Navbar = () => {
     <header className="shrink-0 z-30">
       {/* Top bar */}
       <div className="bg-vsph-navy">
-        <div className="relative h-16 flex items-center gap-3 sm:gap-6 px-4 sm:px-6">
-          <NavLink to="/v2/dashboard" className="shrink-0 leading-none select-none">
-            <span className="block text-[22px] font-bold text-white tracking-tight">VSPH</span>
-            <span className="block text-[9px] font-semibold text-vsph-light-blue tracking-[0.28em] mt-1">
-              CRM
-            </span>
+        <div className="relative min-h-20 flex items-center gap-3 sm:gap-6 px-4 sm:px-6">
+          <NavLink to="/v2/dashboard" className="shrink-0 flex items-center min-h-[44px] select-none" aria-label="VSPH CRM dashboard">
+            <img src="/vsph-logo-white.png" alt="VSPH" className="w-[168px] h-auto object-contain" />
           </NavLink>
 
-          <div className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(680px,calc(100%-340px))]">
+          <div className="hidden md:block relative flex-1 min-w-0 max-w-[680px] mx-auto">
             <div className="flex items-center h-10 bg-white rounded-md overflow-hidden">
               <Search size={17} className="ml-3.5 text-slate-400 shrink-0" />
               <input
@@ -279,7 +273,6 @@ const Navbar = () => {
                 }`
               }
             >
-              {item.icon && <span className="mr-1">{item.icon}</span>}
               {item.name}
             </NavLink>
           ))}

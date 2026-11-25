@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, User } from "lucide-react";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
@@ -6,7 +6,7 @@ import SearchableSelect from "../ui/SearchableSelect";
 import { api } from "../../utils/api";
 import toast from "react-hot-toast";
 
-const AddOpportunityModal = ({
+const OpportunityForm = ({
   isOpen,
   onClose,
   onSuccess,
@@ -15,36 +15,89 @@ const AddOpportunityModal = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [ownerId, setOwnerId] = useState("");
+  const [ownerName, setOwnerName] = useState(()=>opportunityToEdit?opportunityToEdit.opportunity_owner?.user_name||"Unknown":localStorage.getItem("vsph_user_name")||"Unknown User");
+  const [ownerId, setOwnerId] = useState(()=>opportunityToEdit?opportunityToEdit.opportunity_owner_fk:localStorage.getItem("vsph_user_id")||"");
 
   // Dynamic relations
   const [users, setUsers] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
+  const [campaigns] = useState([]);
 
-  const [formData, setFormData] = useState({
-    opportunity_name: "",
-    opportunity_close_date: "",
-    opportunity_stage: "PITCH_DONE",
-    opportunity_type: "INBOUND",
-    opportunity_account_fk: "",
-    opportunity_contact_fk: "",
-    opportunity_project_id: "",
-    opportunity_campaign_id: "",
-    opportunity_call_status: "",
-    opportunity_engagement_form: "",
-    opportunity_payment_status: "",
-    opportunity_loss_reason: "",
-    opportunity_pitched_at: "",
-    opportunity_pickup_date: "",
-    opportunity_pickup_time: "",
-    opportunity_pickup_location: "",
-    opportunity_drop_date: "",
-    opportunity_drop_time: "",
-    opportunity_drop_location: "",
+  const [formData, setFormData] = useState(() => {
+    if (opportunityToEdit) {
+      return {
+        opportunity_name: opportunityToEdit.opportunity_name || "",
+        opportunity_value:opportunityToEdit.opportunity_value??"",opportunity_currency:opportunityToEdit.opportunity_currency||"",opportunity_next_step:opportunityToEdit.opportunity_next_step||"",
+        opportunity_close_date: opportunityToEdit.opportunity_close_date
+          ? new Date(opportunityToEdit.opportunity_close_date)
+              .toISOString()
+              .split("T")[0]
+          : "",
+        opportunity_stage: opportunityToEdit.opportunity_stage || "PITCH_DONE",
+        opportunity_type: opportunityToEdit.opportunity_type || "INBOUND",
+        opportunity_account_fk: opportunityToEdit.opportunity_account_fk || "",
+        opportunity_contact_fk: opportunityToEdit.opportunity_contact_fk || "",
+        opportunity_project_id: opportunityToEdit.opportunity_project_id || "",
+        opportunity_campaign_id:
+          opportunityToEdit.opportunity_campaign_id || "",
+        opportunity_call_status:
+          opportunityToEdit.opportunity_call_status || "",
+        opportunity_engagement_form:
+          opportunityToEdit.opportunity_engagement_form || "",
+        opportunity_payment_status:
+          opportunityToEdit.opportunity_payment_status || "",
+        opportunity_loss_reason:
+          opportunityToEdit.opportunity_loss_reason || "",
+        opportunity_pitched_at: opportunityToEdit.opportunity_pitched_at
+          ? new Date(opportunityToEdit.opportunity_pitched_at)
+              .toISOString()
+              .split("T")[0]
+          : "",
+        opportunity_pickup_date: opportunityToEdit.opportunity_pickup_date
+          ? new Date(opportunityToEdit.opportunity_pickup_date)
+              .toISOString()
+              .split("T")[0]
+          : "",
+        opportunity_pickup_time:
+          opportunityToEdit.opportunity_pickup_time || "",
+        opportunity_pickup_location:
+          opportunityToEdit.opportunity_pickup_location || "",
+        opportunity_drop_date: opportunityToEdit.opportunity_drop_date
+          ? new Date(opportunityToEdit.opportunity_drop_date)
+              .toISOString()
+              .split("T")[0]
+          : "",
+        opportunity_drop_time: opportunityToEdit.opportunity_drop_time || "",
+        opportunity_drop_location:
+          opportunityToEdit.opportunity_drop_location || "",
+      };
+    } else {
+      return {
+        opportunity_name: "",
+    opportunity_value:"",opportunity_currency:"",opportunity_next_step:"",
+        opportunity_close_date: "",
+        opportunity_stage: "",
+        opportunity_type: "",
+        opportunity_account_fk: defaultAccountId || "",
+        opportunity_contact_fk: "",
+        opportunity_project_id: "",
+        opportunity_campaign_id: "",
+        opportunity_call_status: "",
+        opportunity_engagement_form: "",
+        opportunity_payment_status: "",
+        opportunity_loss_reason: "",
+        opportunity_pitched_at: "",
+        opportunity_pickup_date: "",
+        opportunity_pickup_time: "",
+        opportunity_pickup_location: "",
+        opportunity_drop_date: "",
+        opportunity_drop_time: "",
+        opportunity_drop_location: "",
+      };
+
+    }
   });
 
   // Fetch relations when modal opens
@@ -97,90 +150,6 @@ const AddOpportunityModal = ({
     if (isOpen) fetchRelations();
   }, [isOpen]);
 
-
-  // Pre-fill form if editing
-  useEffect(() => {
-    if (opportunityToEdit) {
-      setFormData({
-        opportunity_name: opportunityToEdit.opportunity_name || "",
-        opportunity_close_date: opportunityToEdit.opportunity_close_date
-          ? new Date(opportunityToEdit.opportunity_close_date)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        opportunity_stage: opportunityToEdit.opportunity_stage || "PITCH_DONE",
-        opportunity_type: opportunityToEdit.opportunity_type || "INBOUND",
-        opportunity_account_fk: opportunityToEdit.opportunity_account_fk || "",
-        opportunity_contact_fk: opportunityToEdit.opportunity_contact_fk || "",
-        opportunity_project_id: opportunityToEdit.opportunity_project_id || "",
-        opportunity_campaign_id:
-          opportunityToEdit.opportunity_campaign_id || "",
-        opportunity_call_status:
-          opportunityToEdit.opportunity_call_status || "",
-        opportunity_engagement_form:
-          opportunityToEdit.opportunity_engagement_form || "",
-        opportunity_payment_status:
-          opportunityToEdit.opportunity_payment_status || "",
-        opportunity_loss_reason:
-          opportunityToEdit.opportunity_loss_reason || "",
-        opportunity_pitched_at: opportunityToEdit.opportunity_pitched_at
-          ? new Date(opportunityToEdit.opportunity_pitched_at)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        opportunity_pickup_date: opportunityToEdit.opportunity_pickup_date
-          ? new Date(opportunityToEdit.opportunity_pickup_date)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        opportunity_pickup_time:
-          opportunityToEdit.opportunity_pickup_time || "",
-        opportunity_pickup_location:
-          opportunityToEdit.opportunity_pickup_location || "",
-        opportunity_drop_date: opportunityToEdit.opportunity_drop_date
-          ? new Date(opportunityToEdit.opportunity_drop_date)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        opportunity_drop_time: opportunityToEdit.opportunity_drop_time || "",
-        opportunity_drop_location:
-          opportunityToEdit.opportunity_drop_location || "",
-      });
-      setOwnerId(opportunityToEdit.opportunity_owner_fk);
-      setOwnerName(opportunityToEdit.opportunity_owner?.user_name || "Unknown");
-    } else {
-      setFormData({
-        opportunity_name: "",
-        opportunity_close_date: "",
-        opportunity_stage: "",
-        opportunity_type: "",
-        opportunity_account_fk: defaultAccountId || "",
-        opportunity_contact_fk: "",
-        opportunity_project_id: "",
-        opportunity_campaign_id: "",
-        opportunity_call_status: "",
-        opportunity_engagement_form: "",
-        opportunity_payment_status: "",
-        opportunity_loss_reason: "",
-        opportunity_pitched_at: "",
-        opportunity_pickup_date: "",
-        opportunity_pickup_time: "",
-        opportunity_pickup_location: "",
-        opportunity_drop_date: "",
-        opportunity_drop_time: "",
-        opportunity_drop_location: "",
-      });
-
-      if (isOpen) {
-        const userId = localStorage.getItem("vsph_user_id");
-        const userName = localStorage.getItem("vsph_user_name");
-        if (userId) {
-          setOwnerName(userName || "Unknown User");
-          setOwnerId(userId);
-        }
-      }
-    }
-  }, [opportunityToEdit, isOpen, defaultAccountId]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -335,6 +304,11 @@ const AddOpportunityModal = ({
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="text-sm text-slate-700">Deal value<input name="opportunity_value" inputMode="decimal" value={formData.opportunity_value} onChange={handleChange} className="w-full border border-slate-300 rounded-md px-3 py-2"/></label>
+                <label className="text-sm text-slate-700">Currency code<input name="opportunity_currency" maxLength={3} value={formData.opportunity_currency} onChange={handleChange} placeholder="INR" className="w-full border border-slate-300 rounded-md px-3 py-2"/></label>
+              </div>
+              <label className="block text-sm text-slate-700">Next step<input name="opportunity_next_step" maxLength={191} value={formData.opportunity_next_step} onChange={handleChange} className="w-full border border-slate-300 rounded-md px-3 py-2"/></label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
@@ -722,4 +696,7 @@ const AddOpportunityModal = ({
   );
 };
 
-export default AddOpportunityModal;
+export default function AddOpportunityModal(props){
+  if(!props.isOpen)return null;
+  return <OpportunityForm key={props.opportunityToEdit?.opportunity_id||props.defaultAccountId||"new"} {...props}/>;
+}

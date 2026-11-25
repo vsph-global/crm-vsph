@@ -12,7 +12,8 @@
     "seed": "node prisma/seed.js",
     "seedAcc": "node prisma/seedAcc.js",
     "seedEmailTemplates": "node prisma/seed-email-templates.js",
-    "backfill:onboarding": "node prisma/backfillOnboarding.js"
+    "backfill:onboarding": "node prisma/backfillOnboarding.js",
+    "db:bootstrap:local": "node scripts/bootstrapLocalDatabase.js"
   },
   "keywords": [],
   "author": "",

@@ -7,7 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:contact-workspace": "node --test tests/contact-workspace.test.mjs",
+    "test:contact-preview": "node --test tests/contact-preview.test.mjs",
+    "test:contact-motion": "node --test tests/contact-motion.test.mjs",
+    "test:contact-browser": "playwright test --config=playwright.config.mjs",
+    "lint:contact": "eslint --max-warnings 0 src/components/contact src/components/ConDetailView.jsx src/components/OppDetailView.jsx src/components/modals/AddContactModal.jsx src/components/modals/AddOpportunityModal.jsx src/components/ui/Modal.jsx src/components/ui/SearchableSelect.jsx src/pages/Contacts.jsx src/dev/ContactPreview.jsx src/dev/contactPreviewFixtures.js src/main.jsx"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",

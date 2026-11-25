@@ -1,0 +1,666 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model tenant {
+  tenant_id         String   @id @default(uuid())
+  tenant_name       String
+  tenant_code       String   @unique
+  tenant_status     Status   @default(ACTIVE)
+  tenant_plan       String   @default("STARTER")
+  tenant_created_at DateTime @default(now())
+  tenant_updated_at DateTime @updatedAt
+
+  // Central platform (apps.vsph.in) identity. Never use name/email as the key.
+  external_organization_id String?   @unique
+  tenant_sync_status       String?
+  tenant_synced_at         DateTime?
+
+  tenant_users         user[]
+  tenant_accounts      account[]                      @relation("tenant_accounts")
+  tenant_contacts      contact[]                      @relation("tenant_contacts")
+  tenant_opportunities opportunity[]                  @relation("tenant_opportunities")
+  tenant_projects      project[]                      @relation("tenant_projects")
+  tenant_tasks         task[]                         @relation("tenant_tasks")
+  tenant_task_updates  task_update[]                  @relation("tenant_task_updates")
+  tenant_calls         call[]                         @relation("tenant_calls")
+  tenant_campaigns     campaign[]                     @relation("tenant_campaigns")
+  tenant_industries    industry[]                     @relation("tenant_industries")
+  tenant_entitlements  organization_app_entitlement[]
+  tenant_invitations   invitation[]
+
+  @@index([tenant_status])
+  @@index([tenant_code])
+  @@map("tenants")
+}
+
+model user {
+  user_id              String     @id @default(uuid())
+  user_email           String     @unique
+  user_name            String
+  user_role            Role       @default(USER)
+  user_department      Department @default(SALES)
+  // Null until the user accepts an invitation and sets a password.
+  user_password        String?
+  user_status          Boolean    @default(true)
+  // Granted CRM modules (comma separated). Null means all modules.
+  // Text: explicit per-action grants exceed the 191-char VARCHAR default.
+  user_module_access   String?    @db.Text
+  // Explicit client super admin marker (organization owner).
+  user_is_tenant_owner Boolean    @default(false)
+  user_created_at      DateTime   @default(now())
+  user_updated_at      DateTime   @updatedAt
+  user_deleted_at      DateTime?
+
+  tenant_fk String?
+  tenant    tenant? @relation(fields: [tenant_fk], references: [tenant_id])
+
+  user_accounts       account[]     @relation("account")
+  user_contacts       contact[]     @relation("contact_user")
+  user_owned_contacts contact[]     @relation("contact_owner")
+  user_campaigns      campaign[]    @relation("campaign_user")
+  user_calls          call[]        @relation("call_user")
+  user_tasks          task[]        @relation("task_user")
+  tasks_assigned      task[]        @relation("task_assigned_by")
+  task_updates        task_update[] @relation("task_update_user")
+  opportunities       opportunity[]
+
+  @@index([user_status])
+  @@index([user_deleted_at])
+  @@index([user_role, user_department])
+  @@index([user_name])
+  @@index([tenant_fk])
+  @@map("users")
+}
+
+model account {
+  account_id   String @id @default(uuid())
+  account_code String @unique
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_accounts", fields: [tenant_fk], references: [tenant_id])
+
+  account_owner_fk String
+  owner            user   @relation("account", fields: [account_owner_fk], references: [user_id])
+
+  account_industry_fk String?
+  industry            industry? @relation(fields: [account_industry_fk], references: [industry_id])
+
+  account_name           String
+  account_type           account_type?
+  account_phone          String?
+  account_website        String?
+  account_email          String?
+  account_city           String?
+  account_country        String?
+  account_employees_size Int?
+  account_description    String?       @db.Text
+  account_account_status Status        @default(ACTIVE)
+  account_annual_revenue Decimal?      @db.Decimal(18, 2)
+  account_parent_fk      String?
+  account_parent         account?      @relation("account_parent", fields: [account_parent_fk], references: [account_id])
+  account_created_at     DateTime      @default(now())
+  account_updated_at     DateTime      @updatedAt
+  account_deleted_at     DateTime?
+
+  account_contacts         contact[]     @relation("account_contacts")
+  account_billing_address  billing[]
+  account_shipping_address shipping[]
+  account_children         account[]     @relation("account_parent")
+  opportunities            opportunity[]
+
+  @@index([account_owner_fk])
+  @@index([account_account_status])
+  @@index([account_deleted_at])
+  @@index([account_country, account_city])
+  @@index([account_industry_fk])
+  @@index([account_parent_fk])
+  @@index([account_name])
+  @@index([tenant_fk])
+  @@map("accounts")
+}
+
+model industry {
+  industry_id   String @id @default(uuid())
+  industry_name String
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_industries", fields: [tenant_fk], references: [tenant_id])
+
+  industry_status Boolean @default(true)
+
+  industry_created_at DateTime  @default(now())
+  industry_updated_at DateTime  @updatedAt
+  industry_deleted_at DateTime?
+
+  accounts account[]
+  contacts contact[]
+
+  @@unique([tenant_fk, industry_name])
+  @@index([industry_name])
+  @@index([industry_status])
+  @@index([industry_deleted_at])
+  @@index([tenant_fk])
+  @@map("industries")
+}
+
+model contact {
+  contact_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_contacts", fields: [tenant_fk], references: [tenant_id])
+
+  contact_user_fk String?
+  user            user?   @relation("contact_user", fields: [contact_user_fk], references: [user_id])
+
+  contact_account_fk String?
+  account            account? @relation("account_contacts", fields: [contact_account_fk], references: [account_id])
+
+  contact_owner_fk String?
+  contact_owner    user?   @relation("contact_owner", fields: [contact_owner_fk], references: [user_id])
+
+  contact_industry_fk String?
+  contact_industry    industry? @relation(fields: [contact_industry_fk], references: [industry_id])
+
+  contact_project_fk String?
+  contact_project    project? @relation(fields: [contact_project_fk], references: [project_id])
+
+  contact_campaign_fk String?
+  contact_campaign    campaign? @relation(fields: [contact_campaign_fk], references: [campaign_id])
+
+  contact_salutation salutation?
+
+  contact_code               String         @unique
+  contact_suffix             String?
+  contact_firstname          String?
+  contact_middlename         String?
+  contact_lastname           String?
+  contact_partner_name       String?
+  contact_reportsto          String?
+  contact_designation        String?
+  contact_role               String?
+  contact_call_status        call_status?
+  contact_email_status       email_status?
+  contact_personal_email     String?
+  contact_professional_email String?
+  contact_phone_status       number_status?
+  contact_alternate_number   String?
+  contact_department         String?
+  contact_mobile_number      String?
+  contact_fax_number         String?
+  contact_landline_number    String?
+  contact_employee_size      String?
+  contact_profile_link       String?
+  contact_navigator_link     String?
+  contact_segment            String?
+  contact_level_field        String?
+  contact_tpid               String?
+  contact_city               String?
+  contact_state              String?
+  contact_country            String?
+  contact_pickup_date        DateTime?
+  contact_pickup_time        String?
+  contact_pickup_location    String?
+  contact_drop_date          DateTime?
+  contact_drop_time          String?
+  contact_drop_location      String?
+  contact_phone              String?
+  contact_title              String?
+  contact_mobile             String?
+  contact_status             Status?        @default(ACTIVE)
+  contact_created_at         DateTime       @default(now())
+  contact_updated_at         DateTime       @updatedAt
+  contact_deleted_at         DateTime?
+
+  contact_account_billing_address  billing[]     @relation("billing_contact")
+  contact_account_shipping_address shipping[]    @relation("shipping_contact")
+  opportunities                    opportunity[]
+  contact_calls                    call[]        @relation("call_contact")
+  tasks                            task[]        @relation("contact_tasks")
+
+  @@index([contact_user_fk])
+  @@index([contact_account_fk])
+  @@index([tenant_fk])
+  @@map("contacts")
+}
+
+model opportunity {
+  opportunity_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_opportunities", fields: [tenant_fk], references: [tenant_id])
+
+  opportunity_owner_fk String
+  opportunity_owner    user   @relation(fields: [opportunity_owner_fk], references: [user_id])
+
+  opportunity_account_fk String?
+  opportunity_account    account? @relation(fields: [opportunity_account_fk], references: [account_id])
+
+  opportunity_contact_fk String?
+  opportunity_contact    contact? @relation(fields: [opportunity_contact_fk], references: [contact_id])
+
+  opportunity_project_id String?
+  opportunity_project    project? @relation(fields: [opportunity_project_id], references: [project_id])
+
+  opportunity_campaign_id String?
+  opportunity_campaign    campaign? @relation(fields: [opportunity_campaign_id], references: [campaign_id])
+
+  opportunity_pitched_at      DateTime?
+  opportunity_call_status     call_status?
+  opportunity_stage           stage?
+  opportunity_type            type?
+  opportunity_engagement_form engagement_form?
+  opportunity_payment_status  payment_status?
+  opportunity_loss_reason     loss_reason?
+
+  opportunity_pickup_date     DateTime?
+  opportunity_pickup_time     String?
+  opportunity_pickup_location String?
+  opportunity_drop_date       DateTime?
+  opportunity_drop_time       String?
+  opportunity_drop_location   String?
+
+  opportunity_name       String
+  opportunity_close_date DateTime
+  opportunity_created_at DateTime @default(now())
+  opportunity_updated_at DateTime @updatedAt
+
+  @@index([opportunity_owner_fk])
+  @@index([opportunity_account_fk])
+  @@index([opportunity_contact_fk])
+  @@index([opportunity_project_id])
+  @@index([opportunity_campaign_id])
+  @@index([tenant_fk])
+  @@map("opportunities")
+}
+
+model project {
+  project_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_projects", fields: [tenant_fk], references: [tenant_id])
+
+  project_type type?
+
+  project_name      String?
+  project_location  String
+  project_date      DateTime?
+  project_is_active Status?
+
+  contacts      contact[]
+  opportunities opportunity[]
+
+  project_created_at DateTime  @default(now())
+  project_updated_at DateTime  @updatedAt
+  project_deleted_at DateTime?
+
+  @@index([project_type])
+  @@index([project_location])
+  @@index([project_date])
+  @@index([project_is_active])
+  @@index([tenant_fk])
+  @@map("projects")
+}
+
+model call {
+  call_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_calls", fields: [tenant_fk], references: [tenant_id])
+
+  call_user_fk String?
+  user         user?   @relation("call_user", fields: [call_user_fk], references: [user_id])
+
+  call_contact_fk String?
+  contact         contact? @relation("call_contact", fields: [call_contact_fk], references: [contact_id])
+
+  call_subject     String?
+  call_description String?
+
+  call_created_at DateTime  @default(now())
+  call_updated_at DateTime  @updatedAt
+  call_deleted_at DateTime?
+
+  call_tasks task[] @relation("call_task")
+
+  @@index([call_user_fk])
+  @@index([call_contact_fk])
+  @@index([tenant_fk])
+  @@map("calls")
+}
+
+model task {
+  task_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_tasks", fields: [tenant_fk], references: [tenant_id])
+
+  task_user_fk String?
+  user         user?   @relation("task_user", fields: [task_user_fk], references: [user_id])
+
+  task_assigned_by_fk String?
+  task_assigned_by    user?   @relation("task_assigned_by", fields: [task_assigned_by_fk], references: [user_id])
+
+  task_call_fk String?
+  call         call?   @relation("call_task", fields: [task_call_fk], references: [call_id])
+
+  task_contact_fk String?
+  contact         contact? @relation("contact_tasks", fields: [task_contact_fk], references: [contact_id])
+
+  task_subject     String?
+  task_description String?
+  task_priority    priority? @default(NORMAL)
+  task_status      task_status @default(TODO)
+  task_progress    Int         @default(0)
+  task_due_date    DateTime?   @default(now())
+  task_start_date  DateTime?
+  task_completed_at DateTime?
+
+  task_created_at DateTime  @default(now())
+  task_updated_at DateTime  @updatedAt
+  task_deleted_at DateTime?
+
+  task_updates task_update[]
+
+  @@index([task_user_fk])
+  @@index([task_contact_fk])
+  @@index([task_status])
+  @@index([task_user_fk, task_status])
+  @@index([tenant_fk])
+  @@map("tasks")
+}
+
+model task_update {
+  task_update_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_task_updates", fields: [tenant_fk], references: [tenant_id])
+
+  task_fk String
+  task    task   @relation(fields: [task_fk], references: [task_id], onDelete: Cascade)
+
+  user_fk String?
+  user    user?   @relation("task_update_user", fields: [user_fk], references: [user_id])
+
+  previous_status   task_status?
+  new_status        task_status?
+  previous_progress Int?
+  new_progress      Int?
+  note              String?      @db.Text
+
+  created_at DateTime @default(now())
+
+  @@index([task_fk, created_at])
+  @@index([tenant_fk])
+  @@index([user_fk])
+  @@map("task_updates")
+}
+
+model campaign {
+  campaign_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_campaigns", fields: [tenant_fk], references: [tenant_id])
+
+  campaign_user_fk String?
+  user             user?   @relation("campaign_user", fields: [campaign_user_fk], references: [user_id])
+
+  campaign_name       String?
+  campaign_created_at DateTime  @default(now())
+  campaign_updated_at DateTime  @updatedAt
+  campaign_deleted_at DateTime?
+
+  contacts      contact[]
+  opportunities opportunity[]
+
+  @@index([campaign_user_fk])
+  @@index([tenant_fk])
+  @@index([campaign_deleted_at])
+  @@map("campaigns")
+}
+
+model billing {
+  billing_id         String   @id @default(uuid())
+  billing_account_fk String?
+  account            account? @relation(fields: [billing_account_fk], references: [account_id])
+  billing_contact_fk String?
+  contact            contact? @relation("billing_contact", fields: [billing_contact_fk], references: [contact_id])
+  billing_street     String?
+  billing_state      String?
+  billing_zip        String?
+  billing_country    String?
+  billing_city       String?
+  billing_phone      String?
+  billing_email      String?
+
+  @@index([billing_account_fk])
+  @@map("billing")
+}
+
+model shipping {
+  shipping_id         String   @id @default(uuid())
+  shipping_account_fk String?
+  account             account? @relation(fields: [shipping_account_fk], references: [account_id])
+  shipping_contact_fk String?
+  contact             contact? @relation("shipping_contact", fields: [shipping_contact_fk], references: [contact_id])
+  shipping_street     String?
+  shipping_state      String?
+  shipping_zip        String?
+  shipping_country    String?
+  shipping_city       String?
+  shipping_phone      String?
+  shipping_email      String?
+
+  @@index([shipping_account_fk])
+  @@map("shipping")
+}
+
+model organization_app_entitlement {
+  entitlement_id            String            @id @default(uuid())
+  tenant_fk                 String
+  tenant                    tenant            @relation(fields: [tenant_fk], references: [tenant_id], onDelete: Cascade)
+  app_code                  String            @default("CRM")
+  entitlement_status        EntitlementStatus @default(PENDING)
+  external_subscription_ref String?
+  effective_start           DateTime?
+  effective_end             DateTime?
+  last_synced_at            DateTime?
+  created_at                DateTime          @default(now())
+  updated_at                DateTime          @updatedAt
+
+  @@unique([tenant_fk, app_code])
+  @@index([entitlement_status])
+  @@map("organization_app_entitlements")
+}
+
+model invitation {
+  invitation_id          String           @id @default(uuid())
+  tenant_fk              String
+  tenant                 tenant           @relation(fields: [tenant_fk], references: [tenant_id], onDelete: Cascade)
+  invitation_email       String
+  invitation_role        Role             @default(ADMIN)
+  invitation_token_hash  String           @unique
+  invitation_status      InvitationStatus @default(PENDING)
+  invitation_expires_at  DateTime
+  invitation_accepted_at DateTime?
+  invitation_source      String?
+  invited_by             String?
+  created_at             DateTime         @default(now())
+  updated_at             DateTime         @updatedAt
+
+  @@index([tenant_fk, invitation_email, invitation_status])
+  @@index([invitation_status, invitation_expires_at])
+  @@map("invitations")
+}
+
+model integration_event {
+  event_id                 String   @id @default(uuid())
+  external_organization_id String?
+  event_type               String
+  event_outcome            String
+  event_message            String?  @db.Text
+  event_payload            String?  @db.Text
+  created_at               DateTime @default(now())
+
+  @@index([external_organization_id])
+  @@index([event_type])
+  @@map("integration_events")
+}
+
+enum EntitlementStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+  PENDING
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  SALES
+  DATA
+  PRODUCTION
+  SPONSORSHIP
+  OPERATION
+}
+
+enum Department {
+  SALES
+  MARKETING
+  FINANCE
+  IT
+  HUMAN_RESOURCES
+}
+
+enum account_type {
+  CUSTOMER
+  PARTNER
+  PROSPECT
+  COMPETITER
+  RESELLER
+  DISTRIBUTOR
+}
+
+// enum employee_size {
+//   1
+//   10
+//   50
+//   200
+//   500
+//   1000
+//   5000
+//   10000
+//   10000+
+// }
+
+enum call_status {
+  RINGING
+  PITCH_DONE
+  NOT_INTERESTED
+  NOT_RELEVANT
+  LEFT_ORGANIZATION
+  NOT_AVAILABLE
+  CONNECTED
+  NOT_CONNECTED
+  WRONG_NUMBER
+  DNC
+}
+
+enum email_status {
+  GENERATED
+  NOT_FOUND
+  PENDING
+  RECHECKED
+  VALID
+  INVALID
+  BOUNCE
+}
+
+enum number_status {
+  GENERATED
+  NOT_FOUND
+  PENDING
+  RECHECKED
+  VALID
+  INVALID
+  BOUNCE
+}
+
+enum payment_status {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum salutation {
+  MR
+  MRS
+  MS
+  DR
+  PROF
+}
+
+enum stage {
+  PITCH_DONE
+  FOLLOW_UP
+  CONTRACT_OUT
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum type {
+  INBOUND
+  OUTBOUND
+}
+
+enum engagement_form {
+  DELEGATE
+  SPEAKER
+  SPONSOR
+  MEETING
+  RESEARCH_CALL
+  OPERATION
+}
+
+enum loss_reason {
+  BUDGET_CONSTRAINTS
+  TIMELINE_MISMATCH
+  COMPETITOR_SELECTED
+  NO_DECISION
+  NOT_INTERESTED
+  PRODUCT_FIT
+  INTERNAL_PRIORITIES_CHANGED
+  PRICING
+}
+
+enum priority {
+  NORMAL
+  HIGH
+  LOW
+}
+
+enum task_status {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+}

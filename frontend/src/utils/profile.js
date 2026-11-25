@@ -1,3 +1,4 @@
+import { readSessionValue } from './session.js';
 import { orgRoleLabel } from './modules';
 
 export const AVATAR_COLORS = {
@@ -8,7 +9,7 @@ export const AVATAR_COLORS = {
 
 const read = (key, fallback) => {
   try {
-    return localStorage.getItem(key) ?? fallback;
+    return readSessionValue(key) ?? fallback;
   } catch {
     return fallback;
   }

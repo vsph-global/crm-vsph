@@ -63,23 +63,15 @@ export const canAssignTaskTo = (actor, target) => {
 };
 
 /** Fields an employee may send when updating a task they own. */
-export const assertEmployeeTaskPatch = (body = {}) => {
-  const protectedFields = [
-    "task_user_fk",
-    "task_assigned_by_fk",
-    "task_subject",
-    "task_description",
-    "task_priority",
-    "task_due_date",
-    "task_start_date",
-    "task_contact_fk",
-    "task_call_fk",
-  ];
-  const blocked = protectedFields.filter((field) => body[field] !== undefined);
+export const canRescheduleOwnTask=(user,task)=>isTaskAssignee(user,task)&&task.task_assigned_by_fk===userIdOf(user)&&task.task_status!=="COMPLETED";
+
+export const assertEmployeeTaskPatch = (body = {}, allowDueDate=false) => {
+  const allowed=[...EMPLOYEE_TASK_FIELDS,...(allowDueDate?["task_due_date"]:[])];
+  const blocked=Object.keys(body).filter(field=>!allowed.includes(field));
   if (blocked.length) {
     return {
       ok: false,
-      message: "You can only update the status, progress and work notes of your own tasks.",
+      message: "You can only update your own work state and reschedule open tasks you created yourself.",
     };
   }
   return { ok: true };
