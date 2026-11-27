@@ -76,7 +76,7 @@ export const getCalls = async (req, res) => {
     const { contact_id } = req.query;
 
     const query = {
-      where: { call_deleted_at: null, ...getTenantFilter(req, "call_user_fk") },
+      where: { call_deleted_at: null, ...getTenantFilter(req) },
       include: {
         user: { select: { user_id: true, user_name: true } },
       },

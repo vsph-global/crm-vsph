@@ -97,19 +97,11 @@ export const superadminOnly = (req, res, next) => {
   next();
 };
 
-export const getTenantFilter = (req, userField = null) => {
+export const getTenantFilter = (req) => {
   // Platform superadmin sees all data across all tenants
   if (req.user.role === "SUPER_ADMIN") {
     return {};
   }
-  // Org admin and tenant owner see all data in their own tenant (but not superadmin data)
-  if (req.user.role === "ADMIN" || req.user.isTenantOwner) {
-    return { tenant_fk: req.user.tenantFk };
-  }
-  // Employees only see data they created/own
-  const filter = { tenant_fk: req.user.tenantFk };
-  if (userField) {
-    filter[userField] = req.user.id;
-  }
-  return filter;
+  // All client users (admin, owner, employee) see all data in their own tenant
+  return { tenant_fk: req.user.tenantFk };
 };

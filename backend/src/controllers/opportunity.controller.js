@@ -9,7 +9,7 @@ export const getOpportunities = async (req, res) => {
     const take = Number(limit);
 
     const where = {
-      ...getTenantFilter(req, "opportunity_owner_fk"),
+      ...getTenantFilter(req),
     };
     if (search) {
       where.OR = [{ opportunity_name: { contains: search } }];
