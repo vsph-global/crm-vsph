@@ -24,7 +24,22 @@ async function request(method, endpoint, data) {
     method, headers:getAuthHeaders(),
     ...(method === "GET" ? {} : {body: method === "DELETE" && !data ? undefined : JSON.stringify(data)}),
   });
-  return response.json();
+
+  let body;
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    body = await response.json();
+  } else {
+    body = { message: await response.text() };
+  }
+
+  if (!response.ok) {
+    const error = new Error(body.message || `Request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+
+  return body;
 }
 export const api = {
   get: endpoint => request("GET",endpoint),
