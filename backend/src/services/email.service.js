@@ -2,6 +2,19 @@
  * Senders may only send as their own address when that address is on a domain
  * verified in Resend. EMAIL_SENDER_DOMAINS defaults to the EMAIL_FROM domain.
  */
+import {
+  LOGO_URL,
+  COMPANY_NAME,
+  COMPANY_TAGLINE,
+  COMPANY_WEBSITE,
+  wrapper,
+  header,
+  footer,
+  btn,
+  line,
+  heading,
+} from "../lib/email-templates.js";
+
 export const senderBlockedReason = (email) => {
   const sender = String(email || "").trim().toLowerCase();
   const domain = sender.split("@")[1];
@@ -102,23 +115,53 @@ export const sendInvitationEmail = async ({
       ].join("\n");
 
   const html = isDirectAccount
-    ? `
-      <p>Hello${name ? ` ${name}` : ""},</p>
-      <p>Your account has been created on <b>${organizationName}</b> CRM.</p>
-      <p>Sign in with these credentials:</p>
-      <ul>
-        <li><b>Email:</b> ${to}</li>
-        <li><b>Password:</b> ${password}</li>
-      </ul>
-      <p><a href="${inviteUrl}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Sign in to CRM</a></p>
-      <p style="color:#666;font-size:12px;">You can change your password after signing in.</p>
-    `
-    : `
-      <p>Hello${name ? ` ${name}` : ""},</p>
-      <p>You have been invited to join <b>${organizationName}</b> on VSPH CRM.</p>
-      <p><a href="${inviteUrl}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Set your password &amp; activate account</a></p>
-      <p style="color:#666;font-size:12px;">This link can be used once and expires soon. If you were not expecting it, ignore this email.</p>
-    `;
+    ? wrapper(
+        `Your ${organizationName} CRM account is ready`,
+        `${heading("Your account is ready", "28px")}
+        ${line(`Hello${name ? ` ${name}` : ""}!`, "#334155", "17px", "500")}
+        ${line(`Your account has been created on <b>${organizationName}</b> CRM.`)}
+        ${line("Sign in with these credentials:")}
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding:0 0 14px 0;font-size:16px;color:#334155;"><b>Email:</b> ${to}</td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 14px 0;font-size:16px;color:#334155;"><b>Password:</b> ${password}</td>
+          </tr>
+        </table>
+        ${btn("Sign in to CRM", inviteUrl)}
+        ${line("You can change your password after signing in.", "#64748b", "14px", "400")}`,
+        [
+          `Hello${name ? ` ${name}` : ""},`,
+          "",
+          `Your account has been created on ${organizationName} CRM.`,
+          "Sign in with the following credentials:",
+          "",
+          `Email: ${to}`,
+          `Password: ${password}`,
+          "",
+          `Open this link to sign in: ${inviteUrl}`,
+          "",
+          "You can change your password after signing in.",
+        ].join("\n")
+      )
+    : wrapper(
+        `You are invited to ${organizationName}`,
+        `${heading("You're invited to join ${organizationName}!", "28px")}
+        ${line(`Hello${name ? ` ${name}` : ""}!`, "#334155", "17px", "500")}
+        ${line(`You have been invited to join <b>${organizationName}</b> on VSPH CRM.`)}
+        ${btn("Set your password & activate account", inviteUrl)}
+        ${line("This link can be used once and expires soon. If you were not expecting it, ignore this email.", "#64748b", "14px", "400")}`,
+        [
+          `Hello${name ? ` ${name}` : ""},`,
+          "",
+          `You have been invited to join ${organizationName} on VSPH CRM.`,
+          "Open this link to set your password and activate your account:",
+          inviteUrl,
+          "",
+          "This link can be used once and expires soon. If you were not expecting it, ignore this email.",
+        ].join("\n")
+      );
 
   // Resend (preferred)
   if (process.env.RESEND_API_KEY) {

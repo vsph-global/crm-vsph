@@ -1,10 +1,10 @@
-const LOGO_URL = "https://app.vsph.in/vsph-logo-email.png";
-const COMPANY_NAME = "VSPH";
-const COMPANY_TAGLINE = "Innovation. Technology. People.";
-const COMPANY_WEBSITE = "vsph.in";
-const FOOTER_TEXT = "You are receiving this because you subscribed at vsph.in.";
+export const LOGO_URL = "https://app.vsph.in/vsph-logo-email.png";
+export const COMPANY_NAME = "VSPH";
+export const COMPANY_TAGLINE = "Innovation. Technology. People.";
+export const COMPANY_WEBSITE = "vsph.in";
+export const FOOTER_TEXT = "You are receiving this because you subscribed at vsph.in.";
 
-const header = () => `
+export const header = () => `
   <tr>
     <td align="center" style="background:#001B44;padding:30px 20px;">
       <a href="${COMPANY_WEBSITE}" style="text-decoration:none;">
@@ -14,7 +14,7 @@ const header = () => `
   </tr>
 `;
 
-const footer = () => `
+export const footer = () => `
   <tr>
     <td style="background:#001B44;padding:30px 20px;text-align:center;">
       <p style="margin:0 0 8px 0;font-size:16px;font-weight:700;color:#ffffff;">VSPH</p>
@@ -25,7 +25,7 @@ const footer = () => `
   </tr>
 `;
 
-const wrapper = (title, bodyHtml, bodyText) => `<!DOCTYPE html>
+export const wrapper = (title, bodyHtml, bodyText) => `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -51,7 +51,7 @@ const wrapper = (title, bodyHtml, bodyText) => `<!DOCTYPE html>
 </body>
 </html>`;
 
-const btn = (label, url) => `
+export const btn = (label, url) => `
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
       <td align="center" style="padding:24px 0;">
@@ -67,11 +67,11 @@ const btn = (label, url) => `
   </table>
 `;
 
-const line = (text, color="#334155", size="16px", weight="400") => `
+export const line = (text, color="#334155", size="16px", weight="400") => `
   <p style="margin:0 0 14px 0;font-size:${size};color:${color};font-weight:${weight};line-height:1.6;">${text}</p>
 `;
 
-const heading = (text, size="24px") => `
+export const heading = (text, size="24px") => `
   <h1 style="margin:0 0 16px 0;font-size:${size};color:#0f172a;font-weight:700;line-height:1.3;">${text}</h1>
 `;
 
