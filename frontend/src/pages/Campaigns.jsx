@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  Plus, Search, Edit2, Loader2, Trash2, Megaphone,
+  Plus, Search, Edit2, Loader2, Trash2, Megaphone, Mail,
 } from "lucide-react";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
@@ -8,6 +8,8 @@ import { api } from "../utils/api";
 import { exportCsv } from "../utils/csv";
 import AddCampaignModal from "../components/modals/AddCampaignModal";
 import CampaignDetailView from "../components/CampaignDetailView";
+import CampaignEmailComposer from "../components/CampaignEmailComposer";
+import CampaignEmailHistory from "../components/CampaignEmailHistory";
 import { canDoAction } from "../utils/modules";
 import toast from "react-hot-toast";
 
@@ -26,6 +28,9 @@ const Campaigns = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [campaignToEdit, setCampaignToEdit] = useState(null);
   const [viewCampaignId, setViewCampaignId] = useState(null);
+  const [activeTab, setActiveTab] = useState("campaigns");
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const canCreate = canDoAction("CAMPAIGNS", "CREATE");
   const canEdit = canDoAction("CAMPAIGNS", "EDIT");
   const canDelete = canDoAction("CAMPAIGNS", "DELETE");
@@ -122,7 +127,39 @@ const Campaigns = () => {
           icon: <Plus size={16} />,
           onClick: () => setIsAddModalOpen(true),
         }}
+        secondary={
+          canCreate ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setComposerOpen(true)}
+              className="gap-2 font-semibold"
+            >
+              <Mail size={16} /> New email
+            </Button>
+          ) : null
+        }
       />
+      <div className="px-8 pt-3 surface border-b border-border flex items-center gap-6 shrink-0">
+        {[
+          { id: "campaigns", label: "Campaigns" },
+          { id: "emails", label: "Email history" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? "border-vsph-core-blue text-vsph-core-blue"
+                : "border-transparent text-slate-500 hover:text-vsph-navy"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "campaigns" ? (
+        <>
       <div className="px-8 py-4 border-b border-border surface flex items-center justify-between shrink-0">
         <div className="relative w-80">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -286,6 +323,12 @@ const Campaigns = () => {
           </div>
         </div>
       </div>
+        </>
+      ) : (
+        <div className="flex-1 p-8 overflow-hidden flex flex-col">
+          <CampaignEmailHistory refreshKey={historyRefresh} />
+        </div>
+      )}
 
       <AddCampaignModal
         isOpen={isAddModalOpen}
@@ -301,6 +344,14 @@ const Campaigns = () => {
           onEdit={(camp) => { setViewCampaignId(null); setCampaignToEdit(camp); setIsAddModalOpen(true); }}
         />
       )}
+      <CampaignEmailComposer
+        isOpen={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onSent={() => {
+          setHistoryRefresh((value) => value + 1);
+          setActiveTab("emails");
+        }}
+      />
     </div>
   );
 };

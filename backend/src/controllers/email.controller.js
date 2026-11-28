@@ -1,12 +1,9 @@
 import { prisma } from "../lib/prisma.js";
 import { isEmail } from "../lib/onboarding.logic.js";
+import { interpolate } from "../lib/email-render.js";
 import { sendMail, senderBlockedReason } from "../services/email.service.js";
 
 const DEFAULT_COMPANY_TAGLINE = "Innovation. Technology. People.";
-
-/** Replace {{variable}} placeholders in subject/body. */
-const interpolate = (text, vars) =>
-  String(text || "").replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
 
 /**
  * POST /api/emails/send

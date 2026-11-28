@@ -34,6 +34,7 @@ model tenant {
   tenant_entitlements  organization_app_entitlement[]
   tenant_invitations   invitation[]
   tenant_email_templates email_template[] @relation("tenant_email_templates")
+  tenant_campaign_emails campaign_email[] @relation("tenant_campaign_emails")
 
   @@index([tenant_status])
   @@index([tenant_code])
@@ -65,6 +66,7 @@ model user {
   user_contacts       contact[]     @relation("contact_user")
   user_owned_contacts contact[]     @relation("contact_owner")
   user_campaigns      campaign[]    @relation("campaign_user")
+  campaign_emails_sent campaign_email[] @relation("campaign_email_sender")
   user_calls          call[]        @relation("call_user")
   contact_activity_entries contact_activity_entry[]
   user_tasks          task[]        @relation("task_user")
@@ -224,6 +226,7 @@ model contact {
   contact_account_shipping_address shipping[]    @relation("shipping_contact")
   opportunities                    opportunity[]
   contact_calls                    call[]        @relation("call_contact")
+  campaign_email_recipients        campaign_email_recipient[]
   activity_entries                 contact_activity_entry[]
   tasks                            task[]        @relation("contact_tasks")
 
@@ -244,6 +247,8 @@ model email_template {
   is_default Boolean @default(false)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+
+  campaign_emails campaign_email[]
 
   @@index([tenant_fk])
   @@map("email_templates")
@@ -446,6 +451,63 @@ model campaign {
   @@index([tenant_fk])
   @@index([campaign_deleted_at])
   @@map("campaigns")
+}
+
+// One row per "send email" action from the Campaigns page. The body keeps
+// {{variables}} so each recipient can be rendered individually.
+model campaign_email {
+  campaign_email_id String @id @default(uuid())
+
+  tenant_fk String
+  tenant    tenant @relation("tenant_campaign_emails", fields: [tenant_fk], references: [tenant_id])
+
+  sender_user_fk String?
+  sender         user?   @relation("campaign_email_sender", fields: [sender_user_fk], references: [user_id])
+
+  template_fk   String?
+  template      email_template? @relation(fields: [template_fk], references: [email_template_id])
+  template_name String?
+
+  sender_email String
+  subject      String  @db.Text
+  body_html    String  @db.Text
+  body_text    String? @db.Text
+
+  status          campaign_email_status @default(SENDING)
+  recipient_count Int                  @default(0)
+  sent_count      Int                  @default(0)
+  failed_count    Int                  @default(0)
+  error           String?              @db.Text
+
+  created_at DateTime  @default(now())
+  sent_at    DateTime?
+
+  recipients campaign_email_recipient[]
+
+  @@index([tenant_fk])
+  @@index([created_at])
+  @@map("campaign_emails")
+}
+
+model campaign_email_recipient {
+  recipient_id String @id @default(uuid())
+
+  campaign_email_fk String
+  campaign_email    campaign_email @relation(fields: [campaign_email_fk], references: [campaign_email_id], onDelete: Cascade)
+
+  contact_fk String?
+  contact    contact? @relation(fields: [contact_fk], references: [contact_id])
+
+  email  String
+  name   String?
+  status campaign_email_recipient_status @default(PENDING)
+  error  String?                        @db.Text
+
+  sent_at    DateTime?
+  created_at DateTime @default(now())
+
+  @@index([campaign_email_fk])
+  @@map("campaign_email_recipients")
 }
 
 model billing {
@@ -726,4 +788,16 @@ enum relationship_stage {
   QUALIFIED
   DISQUALIFIED
   CUSTOMER
+}
+
+enum campaign_email_status {
+  SENDING
+  SENT
+  FAILED
+}
+
+enum campaign_email_recipient_status {
+  PENDING
+  SENT
+  FAILED
 }
